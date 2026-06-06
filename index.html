@@ -122,6 +122,37 @@
 
   /* Category breakdown */
   .breakdown{margin-bottom:22px}
+  .bd-budget{font-size:.8rem;margin-top:4px;font-weight:500}
+
+  /* Budget */
+  .budget-card{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px;
+  }
+  .bud-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .bud-lab{font-weight:600;font-size:.95rem}
+  .bud-num{font-family:'Prompt';font-weight:700;font-size:1rem}
+  .bud-bar{height:11px;border-radius:7px;background:var(--paper-2);overflow:hidden}
+  .bud-bar span{display:block;height:100%;border-radius:7px;transition:width .5s ease}
+  .bud-foot{font-size:.82rem;margin-top:7px;font-weight:500}
+  .bud-toggle{
+    width:100%;padding:11px;border:1.5px dashed var(--line);border-radius:12px;
+    background:none;color:var(--ink-soft);font-family:'Prompt';font-weight:500;
+    font-size:.9rem;cursor:pointer;transition:.15s;margin-bottom:20px;
+  }
+  .bud-toggle:hover{border-color:var(--gold);color:var(--gold)}
+  .bud-editor{margin-top:-8px}
+  .bud-cat-title{font-size:.85rem;color:var(--ink-soft);font-weight:600;margin:4px 0 10px}
+  .bud-cat-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .bud-cat-name{flex:1;font-size:.92rem}
+  .bud-cat-row input{width:120px}
+  .donut-wrap{position:relative;width:200px;height:200px;margin:4px auto 20px}
+  .donut{width:200px;height:200px;display:block}
+  .donut circle{transition:stroke-dasharray .5s ease}
+  .donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+  .donut-center .dc-lab{font-size:.8rem;color:var(--ink-soft)}
+  .donut-center .dc-val{font-family:'Prompt';font-weight:700;font-size:1.2rem;color:var(--expense)}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:middle}
   .bd-row{margin-bottom:12px}
   .bd-head{display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:5px}
   .bd-head .cat{font-weight:500}
@@ -222,6 +253,8 @@ const THAI_DAYS = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
 
 let transactions = [];
 let viewYear, viewMonth; // viewMonth 0-11
+let budgets = { overall: 0, categories: {} };
+let budgetEditorOpen = false;
 
 const $ = (s,el=document)=>el.querySelector(s);
 
@@ -236,6 +269,16 @@ function todayISO(){
 
 /* ---------- Storage (localStorage บนเครื่องของคุณ) ---------- */
 const STORE_KEY = 'thai_expense_tracker_v1';
+const BUDGET_KEY = 'thai_expense_budgets_v1';
+function loadBudgets(){
+  try{
+    const raw = localStorage.getItem(BUDGET_KEY);
+    if(raw){ const b=JSON.parse(raw); budgets={overall:b.overall||0, categories:b.categories||{}}; }
+  }catch(e){}
+}
+function saveBudgets(){
+  try{ localStorage.setItem(BUDGET_KEY, JSON.stringify(budgets)); }catch(e){}
+}
 function loadData(){
   try{
     const raw = localStorage.getItem(STORE_KEY);
@@ -295,6 +338,53 @@ function shiftMonth(d){
 }
 
 /* ---------- Render ---------- */
+function budgetBlock(expense){
+  const ob = budgets.overall || 0;
+  let html = '';
+
+  // overall budget overview
+  if(ob > 0){
+    const used = expense;
+    const pct = Math.min(used/ob*100, 100);
+    const remain = ob - used;
+    const over = used > ob;
+    const color = over ? 'var(--expense)' : (used/ob>=0.8 ? '#c98a4b' : 'var(--income)');
+    html += `<div class="budget-card">
+      <div class="bud-top">
+        <span class="bud-lab">งบเดือนนี้</span>
+        <span class="bud-num" style="color:${color}">${fmt(used)} / ${fmt(ob)}</span>
+      </div>
+      <div class="bud-bar"><span style="width:${pct}%;background:${color}"></span></div>
+      <div class="bud-foot" style="color:${over?'var(--expense)':'var(--ink-soft)'}">
+        ${over ? '⚠️ เกินงบ '+fmt(used-ob) : 'เหลือใช้ได้อีก '+fmt(remain)+' · '+pct.toFixed(0)+'%'}
+      </div>
+    </div>`;
+  }
+
+  // editor toggle button
+  html += `<button class="bud-toggle" id="budToggle">${budgetEditorOpen?'▾ ปิดการตั้งงบ':'⚙ ตั้งงบประมาณรายเดือน'}</button>`;
+
+  // editor
+  if(budgetEditorOpen){
+    html += `<div class="panel bud-editor">
+      <div class="field" style="margin-bottom:14px">
+        <label>งบรวมทั้งเดือน (บาท)</label>
+        <input type="number" id="bud_overall" min="0" step="1" inputmode="decimal" placeholder="เช่น 15000" value="${ob||''}">
+      </div>
+      <div class="bud-cat-title">งบแยกรายหมวด (ไม่บังคับ)</div>`;
+    CATS.expense.forEach((c,i)=>{
+      const v = budgets.categories[c] || '';
+      html += `<div class="bud-cat-row">
+        <span class="bud-cat-name">${c}</span>
+        <input type="number" class="bud_cat" data-cat="${c}" min="0" step="1" inputmode="decimal" placeholder="0" value="${v}">
+      </div>`;
+    });
+    html += `<button class="addbtn" id="budSave" style="margin-top:14px">บันทึกงบประมาณ</button>
+      </div>`;
+  }
+  return html;
+}
+
 function render(){
   const app = $('#app');
   const list = monthTx();
@@ -325,6 +415,7 @@ function render(){
       <div class="card exp"><div class="strip"></div><div class="lab">รายจ่าย</div><div class="val">${fmt(expense)}</div></div>
       <div class="card bal"><div class="strip"></div><div class="lab">คงเหลือ</div><div class="val" style="color:${balance>=0?'var(--income)':'var(--expense)'}">${fmt(balance)}</div></div>
     </div>
+    ${budgetBlock(expense)}
 
     <div class="panel">
       <h2>เพิ่มรายการใหม่</h2>
@@ -358,14 +449,42 @@ function render(){
     </div>`;
 
   if(cats.length){
-    html += `<div class="breakdown"><div class="section-title">สรุปรายจ่ายตามหมวด</div>`;
-    cats.forEach(([c,amt])=>{
+    const PALETTE = ['#b5503a','#b88a3e','#3f7d5a','#5b7a9c','#8a5a8c','#c98a4b','#6b8e6b','#a8556b','#7d7a52','#9c6b4b'];
+    const C = 2 * Math.PI * 70;            // วงกลม r=70
+    let acc = 0;
+    let segs = '';
+    cats.forEach(([c,amt],i)=>{
+      const frac = expense ? amt/expense : 0;
+      const col = PALETTE[i % PALETTE.length];
+      const dash = frac * C;
+      segs += `<circle cx="90" cy="90" r="70" fill="none" stroke="${col}" stroke-width="30"
+        stroke-dasharray="${dash} ${C-dash}" stroke-dashoffset="${-acc*C}"
+        transform="rotate(-90 90 90)"></circle>`;
+      acc += frac;
+    });
+
+    html += `<div class="breakdown"><div class="section-title">สัดส่วนรายจ่าย</div>`;
+    html += `<div class="donut-wrap">
+        <svg viewBox="0 0 180 180" class="donut">${segs}</svg>
+        <div class="donut-center"><div class="dc-lab">รวมจ่าย</div><div class="dc-val">${fmt(expense)}</div></div>
+      </div>`;
+
+    cats.forEach(([c,amt],i)=>{
       const pct = maxCat? (amt/maxCat*100):0;
       const share = expense? (amt/expense*100).toFixed(0):0;
+      const col = PALETTE[i % PALETTE.length];
+      const cbud = budgets.categories[c] || 0;
+      let budLine = '';
+      if(cbud > 0){
+        const cover = amt > cbud;
+        budLine = `<div class="bd-budget" style="color:${cover?'var(--expense)':'var(--ink-soft)'}">
+          ${cover ? '⚠️ เกินงบ '+fmt(amt-cbud) : 'งบ '+fmt(cbud)+' · เหลือ '+fmt(cbud-amt)}</div>`;
+      }
       html += `
         <div class="bd-row">
-          <div class="bd-head"><span class="cat">${c} <span style="color:var(--ink-soft)">· ${share}%</span></span><span class="amt">${fmt(amt)}</span></div>
-          <div class="bar"><span style="width:${pct}%"></span></div>
+          <div class="bd-head"><span class="cat"><span class="swatch" style="background:${col}"></span>${c} <span style="color:var(--ink-soft)">· ${share}%</span></span><span class="amt">${fmt(amt)}</span></div>
+          <div class="bar"><span style="width:${pct}%;background:${col}"></span></div>
+          ${budLine}
         </div>`;
     });
     html += `</div>`;
@@ -438,6 +557,22 @@ function wire(){
   document.querySelectorAll('.del').forEach(b=>{
     b.onclick = ()=>{ if(confirm('ลบรายการนี้?')) deleteTx(Number(b.dataset.id)); };
   });
+
+  const bt = $('#budToggle');
+  if(bt) bt.onclick = ()=>{ budgetEditorOpen = !budgetEditorOpen; render(); };
+  const bs = $('#budSave');
+  if(bs) bs.onclick = ()=>{
+    const ov = parseFloat($('#bud_overall').value) || 0;
+    const cats = {};
+    document.querySelectorAll('.bud_cat').forEach(inp=>{
+      const v = parseFloat(inp.value) || 0;
+      if(v > 0) cats[inp.dataset.cat] = v;
+    });
+    budgets = { overall: ov, categories: cats };
+    saveBudgets();
+    budgetEditorOpen = false;
+    render();
+  };
 }
 
 $('#resetBtn').onclick = ()=>{
@@ -456,6 +591,7 @@ $('#importFile').onchange = (e)=>{ if(e.target.files[0]) importData(e.target.fil
   viewYear = now.getFullYear();
   viewMonth = now.getMonth();
   loadData();
+  loadBudgets();
   render();
 })();
 </script>
