@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>สมุดบัญชี รายรับ-รายจ่าย</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Chonburi&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f4ede0;
+    --paper-2:#efe6d4;
+    --card:#fbf6ec;
+    --ink:#2c2620;
+    --ink-soft:#6b6052;
+    --line:#ddd0bb;
+    --income:#3f7d5a;
+    --income-soft:#e3efe6;
+    --expense:#b5503a;
+    --expense-soft:#f6e4dd;
+    --gold:#b88a3e;
+    --shadow:0 1px 2px rgba(44,38,32,.06), 0 8px 24px rgba(44,38,32,.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'IBM Plex Sans Thai',sans-serif;
+    background:var(--paper);
+    background-image:
+      radial-gradient(circle at 12% 18%, rgba(184,138,62,.06), transparent 40%),
+      radial-gradient(circle at 88% 82%, rgba(63,125,90,.05), transparent 42%);
+    color:var(--ink);
+    line-height:1.5;
+    min-height:100vh;
+    padding:24px 16px 80px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+
+  /* Header */
+  header{text-align:center;margin-bottom:28px}
+  header .kicker{
+    font-size:.8rem;letter-spacing:.32em;text-transform:uppercase;
+    color:var(--gold);font-weight:600;margin-bottom:6px;
+  }
+  header h1{
+    font-family:'Chonburi',serif;font-weight:400;
+    font-size:2.5rem;line-height:1.1;color:var(--ink);
+  }
+  header .rule{
+    width:64px;height:3px;background:var(--gold);
+    margin:14px auto 0;border-radius:2px;
+  }
+
+  /* Month nav */
+  .monthbar{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--card);border:1px solid var(--line);
+    border-radius:16px;padding:10px 14px;margin-bottom:18px;
+    box-shadow:var(--shadow);
+  }
+  .monthbar button{
+    width:40px;height:40px;border-radius:10px;border:1px solid var(--line);
+    background:var(--paper-2);color:var(--ink);font-size:1.2rem;cursor:pointer;
+    transition:.18s;display:flex;align-items:center;justify-content:center;
+  }
+  .monthbar button:hover{background:var(--gold);color:#fff;border-color:var(--gold)}
+  .monthbar .mlabel{font-family:'Prompt';font-weight:600;font-size:1.25rem}
+
+  /* Summary cards */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:16px 14px;box-shadow:var(--shadow);position:relative;overflow:hidden;
+  }
+  .card .lab{font-size:.82rem;color:var(--ink-soft);font-weight:500;margin-bottom:4px}
+  .card .val{font-family:'Prompt';font-weight:700;font-size:1.35rem;letter-spacing:-.01em}
+  .card.inc .val{color:var(--income)}
+  .card.exp .val{color:var(--expense)}
+  .card .strip{position:absolute;top:0;left:0;width:4px;height:100%}
+  .card.inc .strip{background:var(--income)}
+  .card.exp .strip{background:var(--expense)}
+  .card.bal .strip{background:var(--gold)}
+
+  /* Add form */
+  .panel{
+    background:var(--card);border:1px solid var(--line);border-radius:18px;
+    padding:18px;box-shadow:var(--shadow);margin-bottom:22px;
+  }
+  .panel h2{
+    font-family:'Prompt';font-weight:600;font-size:1.05rem;margin-bottom:14px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .panel h2::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--gold)}
+  .typetog{display:flex;gap:8px;margin-bottom:14px}
+  .typetog label{
+    flex:1;text-align:center;padding:10px;border-radius:10px;cursor:pointer;
+    border:1.5px solid var(--line);font-weight:600;transition:.18s;color:var(--ink-soft);
+  }
+  .typetog input{display:none}
+  .typetog input:checked + label.inc{background:var(--income-soft);border-color:var(--income);color:var(--income)}
+  .typetog input:checked + label.exp{background:var(--expense-soft);border-color:var(--expense);color:var(--expense)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:.8rem;color:var(--ink-soft);font-weight:500}
+  input,select{
+    font-family:'IBM Plex Sans Thai',sans-serif;font-size:.95rem;
+    padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;
+    background:var(--paper);color:var(--ink);width:100%;transition:.18s;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--gold);background:#fff}
+  .addbtn{
+    width:100%;padding:13px;border:none;border-radius:12px;cursor:pointer;
+    background:var(--ink);color:var(--paper);font-family:'Prompt';font-weight:600;
+    font-size:1rem;transition:.18s;margin-top:4px;
+  }
+  .addbtn:hover{background:var(--gold)}
+
+  /* Category breakdown */
+  .breakdown{margin-bottom:22px}
+  .bd-row{margin-bottom:12px}
+  .bd-head{display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:5px}
+  .bd-head .cat{font-weight:500}
+  .bd-head .amt{font-family:'Prompt';font-weight:600}
+  .bar{height:9px;border-radius:6px;background:var(--paper-2);overflow:hidden}
+  .bar span{display:block;height:100%;border-radius:6px;background:var(--expense);transition:width .5s ease}
+
+  /* Daily list */
+  .daygroup{margin-bottom:18px}
+  .dayhead{
+    display:flex;align-items:baseline;justify-content:space-between;
+    padding:0 4px 8px;border-bottom:1.5px dashed var(--line);margin-bottom:8px;
+  }
+  .dayhead .date{font-family:'Prompt';font-weight:600;font-size:1rem}
+  .dayhead .dsum{font-size:.85rem;color:var(--ink-soft)}
+  .tx{
+    display:flex;align-items:center;gap:12px;padding:11px 14px;
+    background:var(--card);border:1px solid var(--line);border-radius:13px;
+    margin-bottom:8px;transition:.15s;
+  }
+  .tx:hover{box-shadow:var(--shadow);transform:translateX(2px)}
+  .tx .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .tx.inc .dot{background:var(--income)}
+  .tx.exp .dot{background:var(--expense)}
+  .tx .info{flex:1;min-width:0}
+  .tx .cat{font-weight:600;font-size:.95rem}
+  .tx .note{font-size:.82rem;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tx .amt{font-family:'Prompt';font-weight:700;font-size:1.02rem;white-space:nowrap}
+  .tx.inc .amt{color:var(--income)}
+  .tx.exp .amt{color:var(--expense)}
+  .tx .del{
+    background:none;border:none;cursor:pointer;color:var(--ink-soft);
+    font-size:1.1rem;padding:4px 6px;border-radius:8px;transition:.15s;line-height:1;
+  }
+  .tx .del:hover{background:var(--expense-soft);color:var(--expense)}
+
+  .empty{
+    text-align:center;padding:40px 20px;color:var(--ink-soft);
+    background:var(--card);border:1.5px dashed var(--line);border-radius:16px;
+  }
+  .empty .big{font-size:2rem;margin-bottom:8px}
+
+  .section-title{
+    font-family:'Prompt';font-weight:600;font-size:1.1rem;margin:0 0 14px 4px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .section-title::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--gold)}
+
+  footer{text-align:center;margin-top:30px;font-size:.82rem;color:var(--ink-soft)}
+  .foot-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+  footer button{
+    background:var(--card);border:1px solid var(--line);color:var(--ink-soft);
+    padding:8px 16px;border-radius:20px;cursor:pointer;font-family:inherit;
+    font-size:.85rem;transition:.15s;
+  }
+  footer button.ok:hover{border-color:var(--income);color:var(--income);background:var(--income-soft)}
+  footer button#resetBtn:hover{border-color:var(--expense);color:var(--expense);background:var(--expense-soft)}
+
+  .loading{text-align:center;padding:60px 20px;color:var(--ink-soft);font-size:1rem}
+
+  @media(max-width:560px){
+    header h1{font-size:2rem}
+    .cards{grid-template-columns:1fr;gap:10px}
+    .card{display:flex;align-items:center;justify-content:space-between}
+    .card .val{font-size:1.2rem}
+    .grid2{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">บันทึกประจำวัน</div>
+    <h1>สมุดบัญชี</h1>
+    <div class="rule"></div>
+  </header>
+
+  <div id="app"><div class="loading">⏳ กำลังโหลดข้อมูล…</div></div>
+
+  <footer>
+    <div>บันทึกรายรับ-รายจ่ายของคุณ · ข้อมูลถูกบันทึกไว้ในเครื่องนี้โดยอัตโนมัติ</div>
+    <div class="foot-btns">
+      <button id="exportBtn" class="ok">💾 สำรองข้อมูล</button>
+      <button id="importBtn" class="ok">📥 นำเข้าข้อมูล</button>
+      <button id="resetBtn">🗑 ล้างข้อมูลทั้งหมด</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+  </footer>
+</div>
+
+<script>
+const CATS = {
+  income: ['เงินเดือน','รายได้เสริม','โบนัส','ของขวัญ','ดอกเบี้ย','อื่นๆ'],
+  expense: ['อาหาร','เดินทาง','ช้อปปิ้ง','ค่าน้ำค่าไฟ','ที่พัก','สุขภาพ','บันเทิง','การศึกษา','อื่นๆ']
+};
+const THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const THAI_DAYS = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+
+let transactions = [];
+let viewYear, viewMonth; // viewMonth 0-11
+
+const $ = (s,el=document)=>el.querySelector(s);
+
+function fmt(n){
+  return '฿' + Number(n).toLocaleString('th-TH',{minimumFractionDigits:0, maximumFractionDigits:2});
+}
+function pad(n){return String(n).padStart(2,'0')}
+function todayISO(){
+  const d=new Date();
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+
+/* ---------- Storage (localStorage บนเครื่องของคุณ) ---------- */
+const STORE_KEY = 'thai_expense_tracker_v1';
+function loadData(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ transactions = JSON.parse(raw) || []; }
+  }catch(e){ transactions = []; }
+}
+function saveData(){
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify(transactions));
+  }catch(e){ console.error('บันทึกไม่สำเร็จ', e); }
+}
+
+/* ---------- สำรอง / นำเข้าข้อมูล ---------- */
+function exportData(){
+  const blob = new Blob([JSON.stringify(transactions,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const d = new Date();
+  a.href = url;
+  a.download = `backup-บัญชี-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function importData(file){
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      const data = JSON.parse(e.target.result);
+      if(!Array.isArray(data)) throw new Error('รูปแบบไฟล์ไม่ถูกต้อง');
+      if(confirm(`พบ ${data.length} รายการในไฟล์\nต้องการแทนที่ข้อมูลทั้งหมดด้วยไฟล์นี้หรือไม่?`)){
+        transactions = data;
+        saveData(); render();
+        alert('นำเข้าข้อมูลสำเร็จ');
+      }
+    }catch(err){ alert('ไม่สามารถอ่านไฟล์ได้: ' + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- Logic ---------- */
+function monthTx(){
+  return transactions.filter(t=>{
+    const d=new Date(t.date+'T00:00:00');
+    return d.getFullYear()===viewYear && d.getMonth()===viewMonth;
+  });
+}
+function addTx(t){ transactions.push(t); saveData(); render(); }
+function deleteTx(id){
+  transactions = transactions.filter(t=>t.id!==id);
+  saveData(); render();
+}
+function shiftMonth(d){
+  viewMonth += d;
+  if(viewMonth<0){viewMonth=11;viewYear--}
+  if(viewMonth>11){viewMonth=0;viewYear++}
+  render();
+}
+
+/* ---------- Render ---------- */
+function render(){
+  const app = $('#app');
+  const list = monthTx();
+  const income = list.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const expense = list.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const balance = income - expense;
+
+  // category breakdown (expense)
+  const catMap={};
+  list.filter(t=>t.type==='expense').forEach(t=>{catMap[t.category]=(catMap[t.category]||0)+t.amount});
+  const cats = Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+  const maxCat = cats.length?cats[0][1]:0;
+
+  // group by date desc
+  const byDate={};
+  list.forEach(t=>{(byDate[t.date]=byDate[t.date]||[]).push(t)});
+  const dates = Object.keys(byDate).sort().reverse();
+
+  let html = `
+    <div class="monthbar">
+      <button id="prevM" aria-label="เดือนก่อน">‹</button>
+      <div class="mlabel">${THAI_MONTHS[viewMonth]} ${viewYear+543}</div>
+      <button id="nextM" aria-label="เดือนถัดไป">›</button>
+    </div>
+
+    <div class="cards">
+      <div class="card inc"><div class="strip"></div><div class="lab">รายรับ</div><div class="val">${fmt(income)}</div></div>
+      <div class="card exp"><div class="strip"></div><div class="lab">รายจ่าย</div><div class="val">${fmt(expense)}</div></div>
+      <div class="card bal"><div class="strip"></div><div class="lab">คงเหลือ</div><div class="val" style="color:${balance>=0?'var(--income)':'var(--expense)'}">${fmt(balance)}</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>เพิ่มรายการใหม่</h2>
+      <div class="typetog">
+        <input type="radio" name="type" id="t_exp" value="expense" checked>
+        <label for="t_exp" class="exp">📤 รายจ่าย</label>
+        <input type="radio" name="type" id="t_inc" value="income">
+        <label for="t_inc" class="inc">📥 รายรับ</label>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>วันที่</label>
+          <input type="date" id="f_date" value="${todayISO()}">
+        </div>
+        <div class="field">
+          <label>หมวดหมู่</label>
+          <select id="f_cat"></select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>จำนวนเงิน (บาท)</label>
+          <input type="number" id="f_amt" placeholder="0.00" min="0" step="0.01" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label>บันทึก (ไม่บังคับ)</label>
+          <input type="text" id="f_note" placeholder="รายละเอียด...">
+        </div>
+      </div>
+      <button class="addbtn" id="addBtn">+ บันทึกรายการ</button>
+    </div>`;
+
+  if(cats.length){
+    html += `<div class="breakdown"><div class="section-title">สรุปรายจ่ายตามหมวด</div>`;
+    cats.forEach(([c,amt])=>{
+      const pct = maxCat? (amt/maxCat*100):0;
+      const share = expense? (amt/expense*100).toFixed(0):0;
+      html += `
+        <div class="bd-row">
+          <div class="bd-head"><span class="cat">${c} <span style="color:var(--ink-soft)">· ${share}%</span></span><span class="amt">${fmt(amt)}</span></div>
+          <div class="bar"><span style="width:${pct}%"></span></div>
+        </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div class="section-title">บันทึกประจำวัน</div>`;
+  if(!dates.length){
+    html += `<div class="empty"><div class="big">📖</div>ยังไม่มีรายการในเดือนนี้<br>เริ่มบันทึกการใช้จ่ายของคุณได้เลย</div>`;
+  } else {
+    dates.forEach(date=>{
+      const items = byDate[date].slice().sort((a,b)=>b.id-a.id);
+      const dInc = items.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+      const dExp = items.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+      const d = new Date(date+'T00:00:00');
+      const dlabel = `${THAI_DAYS[d.getDay()]} ${d.getDate()} ${THAI_MONTHS[d.getMonth()]}`;
+      let dsum=[];
+      if(dInc) dsum.push(`+${fmt(dInc)}`);
+      if(dExp) dsum.push(`-${fmt(dExp)}`);
+      html += `<div class="daygroup">
+        <div class="dayhead"><span class="date">${dlabel}</span><span class="dsum">${dsum.join('  ·  ')}</span></div>`;
+      items.forEach(t=>{
+        html += `<div class="tx ${t.type}">
+          <span class="dot"></span>
+          <div class="info">
+            <div class="cat">${t.category}</div>
+            ${t.note?`<div class="note">${escapeHtml(t.note)}</div>`:''}
+          </div>
+          <div class="amt">${t.type==='income'?'+':'−'}${fmt(t.amount)}</div>
+          <button class="del" data-id="${t.id}" aria-label="ลบ">✕</button>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+  }
+
+  app.innerHTML = html;
+  wire();
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function fillCats(){
+  const type = document.querySelector('input[name=type]:checked').value;
+  const sel = $('#f_cat');
+  sel.innerHTML = CATS[type].map(c=>`<option value="${c}">${c}</option>`).join('');
+}
+
+function wire(){
+  $('#prevM').onclick = ()=>shiftMonth(-1);
+  $('#nextM').onclick = ()=>shiftMonth(1);
+  fillCats();
+  document.querySelectorAll('input[name=type]').forEach(r=>r.onchange=fillCats);
+
+  $('#addBtn').onclick = ()=>{
+    const type = document.querySelector('input[name=type]:checked').value;
+    const date = $('#f_date').value;
+    const cat = $('#f_cat').value;
+    const amt = parseFloat($('#f_amt').value);
+    const note = $('#f_note').value.trim();
+    if(!date){ alert('กรุณาเลือกวันที่'); return; }
+    if(!amt || amt<=0){ alert('กรุณากรอกจำนวนเงินให้ถูกต้อง'); return; }
+    // jump view to the month of the new entry
+    const d = new Date(date+'T00:00:00');
+    viewYear = d.getFullYear(); viewMonth = d.getMonth();
+    addTx({id:Date.now(), type, date, category:cat, amount:amt, note});
+  };
+
+  document.querySelectorAll('.del').forEach(b=>{
+    b.onclick = ()=>{ if(confirm('ลบรายการนี้?')) deleteTx(Number(b.dataset.id)); };
+  });
+}
+
+$('#resetBtn').onclick = ()=>{
+  if(!confirm('ต้องการล้างข้อมูลทั้งหมดใช่หรือไม่? การกระทำนี้ย้อนกลับไม่ได้')) return;
+  transactions = [];
+  try{ localStorage.removeItem(STORE_KEY); }catch(e){}
+  render();
+};
+$('#exportBtn').onclick = exportData;
+$('#importBtn').onclick = ()=> $('#importFile').click();
+$('#importFile').onchange = (e)=>{ if(e.target.files[0]) importData(e.target.files[0]); e.target.value=''; };
+
+/* ---------- Init ---------- */
+(function init(){
+  const now = new Date();
+  viewYear = now.getFullYear();
+  viewMonth = now.getMonth();
+  loadData();
+  render();
+})();
+</script>
+</body>
+</html>
