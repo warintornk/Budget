@@ -137,6 +137,32 @@
   .bud-cat-name{flex:1;font-size:.92rem}
   .bud-cat-row input{width:130px}
 
+  /* Savings goals */
+  .goal-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px}
+  .goal-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
+  .goal-name{font-weight:600;font-size:.98rem}
+  .goal-num{font-family:'Prompt';font-weight:700;font-size:.95rem;white-space:nowrap}
+  .goal-bar{height:11px;border-radius:7px;background:var(--paper-2);overflow:hidden}
+  .goal-bar span{display:block;height:100%;border-radius:7px;transition:width .5s ease}
+  .goal-foot{font-size:.82rem;margin-top:7px;color:var(--ink-soft);font-weight:500}
+  .goal-sub{font-size:.8rem;margin-top:3px;color:var(--ink-soft)}
+  .goal-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .goal-actions button{flex:1;min-width:90px;border:1px solid var(--line);background:var(--paper-2);color:var(--ink);border-radius:10px;padding:9px 8px;cursor:pointer;font-family:'Prompt';font-weight:500;font-size:.85rem;transition:.15s}
+  .goal-actions .g-dep:hover{background:var(--income-soft);border-color:var(--income);color:var(--income)}
+  .goal-actions .g-edit:hover{background:var(--income-soft);border-color:var(--gold);color:var(--gold)}
+  .goal-actions .g-del{flex:0 0 auto;min-width:auto}
+  .goal-actions .g-del:hover{background:var(--expense-soft);border-color:var(--expense);color:var(--expense)}
+  .dep-form{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+  .dep-form .dep-save{background:var(--income-soft);border-color:var(--income);color:var(--income)}
+  .dep-history{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}
+  .dep-row{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line)}
+  .dep-row:last-child{border-bottom:none}
+  .dep-date{flex:1;font-size:.86rem;color:var(--ink-soft)}
+  .dep-amt{font-family:'Prompt';font-weight:600;font-size:.92rem;color:var(--income)}
+  .dep-del{background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:.92rem;padding:3px 6px;border-radius:6px;line-height:1;transition:.15s}
+  .dep-del:hover{background:var(--expense-soft);color:var(--expense)}
+  .dep-empty{font-size:.84rem;color:var(--ink-soft);text-align:center;padding:6px}
+
   /* Breakdown + donut */
   .breakdown{margin-bottom:22px}
   .donut-wrap{position:relative;width:200px;height:200px;margin:4px auto 20px}
@@ -219,7 +245,7 @@ const DAYS = {
 /* canonical category = Thai string (keeps existing data working) */
 const CAT_DEF = {
   income:  [['เงินเดือน','Salary'],['รายได้เสริม','Side income'],['โบนัส','Bonus'],['ของขวัญ','Gift'],['ดอกเบี้ย','Interest'],['อื่นๆ','Other']],
-  expense: [['อาหาร','Food'],['ค่าน้ำมัน','Fuel'],['ช้อปปิ้ง','Shopping'],['ค่าน้ำค่าไฟ','Utilities'],['ที่พัก','Housing'],['ค่าซักผ้า','Laundry'],['ค่าบัตรเครดิต','Credit card'],['สุขภาพ','Health'],['บันเทิง','Entertainment'],['การศึกษา','Education'],['อื่นๆ','Other']]
+  expense: [['อาหาร','Food'],['ค่าน้ำมัน','Fuel'],['ช้อปปิ้ง','Shopping'],['ของใช้ทั่วไป','Household'],['ค่าน้ำค่าไฟ','Utilities'],['ที่พัก','Housing'],['ค่าซักผ้า','Laundry'],['ค่าบัตรเครดิต','Credit card'],['ค่างวดรถ','Car payment'],['สุขภาพ','Health'],['บันเทิง','Entertainment'],['การศึกษา','Education'],['อื่นๆ','Other']]
 };
 const CAT_EN = {};
 Object.values(CAT_DEF).flat().forEach(([th,en])=>{CAT_EN[th]=en});
@@ -232,6 +258,11 @@ let budgetEditorOpen = false;
 let editingId = null;
 let filter = { q:'', type:'all', cat:'all', from:'', to:'' };
 let focusSearch = false;
+let goals = [];
+let goalEditorOpen = false;
+let goalEditId = null;
+let depositGoalId = null;
+let historyGoalId = null;
 
 const $ = (s,el=document)=>el.querySelector(s);
 
@@ -250,6 +281,10 @@ function loadSettings(){try{const r=localStorage.getItem(SET_KEY);if(r){const s=
 function saveSettings(){try{localStorage.setItem(SET_KEY,JSON.stringify({lang,theme}));}catch(e){}}
 function loadBudgets(){try{const r=localStorage.getItem(BUDGET_KEY);if(r){const b=JSON.parse(r);budgets={overall:b.overall||0,categories:b.categories||{}};}}catch(e){}}
 function saveBudgets(){try{localStorage.setItem(BUDGET_KEY,JSON.stringify(budgets));}catch(e){}}
+const SAVINGS_KEY = 'thai_expense_savings_v1';
+function loadGoals(){try{const r=localStorage.getItem(SAVINGS_KEY);if(r){goals=JSON.parse(r)||[];}}catch(e){goals=[];}}
+function saveGoals(){try{localStorage.setItem(SAVINGS_KEY,JSON.stringify(goals));}catch(e){}}
+function goalSaved(g){return (g.deposits||[]).reduce((s,d)=>s+(d.amount||0),0);}
 function loadData(){try{const raw=localStorage.getItem(STORE_KEY);if(raw){transactions=JSON.parse(raw)||[];}}catch(e){transactions=[];}}
 function saveData(){try{localStorage.setItem(STORE_KEY,JSON.stringify(transactions));}catch(e){}}
 
@@ -438,6 +473,89 @@ function budgetBlock(expense){
   return html;
 }
 
+function savingsBlock(){
+  const ge = goalEditId ? goals.find(g=>g.id===goalEditId) : null;
+  let html = `<div class="section-title">${L('เป้าหมายการออม','Savings goals')}</div>`;
+  if(goals.length){
+    goals.forEach(g=>{
+      const saved = goalSaved(g);
+      const pct = g.target ? Math.min(saved/g.target*100,100) : 0;
+      const done = g.target>0 && saved>=g.target;
+      const remain = Math.max(g.target-saved,0);
+      const col = done ? 'var(--income)' : 'var(--gold)';
+      const deps = (g.deposits||[]).slice().sort((a,b)=> (b.date+b.id).localeCompare ? b.date.localeCompare(a.date)||b.id-a.id : b.id-a.id);
+      let dl='';
+      if(g.deadline){
+        const today=new Date(); today.setHours(0,0,0,0);
+        const dd=new Date(g.deadline+'T00:00:00');
+        const days=Math.ceil((dd-today)/86400000);
+        if(!done && days>=0 && remain>0){
+          const perMonth=remain/Math.max(Math.ceil(days/30),1);
+          dl=`<div class="goal-sub">${L('เหลือ ','')}${days}${L(' วัน · ควรออมอีกเดือนละ ~',' days left · save ~')}${fmt(perMonth)}${L('',' /mo')}</div>`;
+        }else if(!done && days<0 && remain>0){
+          dl=`<div class="goal-sub" style="color:var(--expense)">${L('⚠️ เลยกำหนดแล้ว','⚠️ Past deadline')}</div>`;
+        }
+      }
+      // deposit form
+      let depForm='';
+      if(depositGoalId===g.id){
+        depForm=`<div class="dep-form">
+          <div class="grid2">
+            <div class="field"><label>${L('จำนวนเงิน (บาท)','Amount (฿)')}</label><input type="number" id="dep_amt" min="0" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+            <div class="field"><label>${L('วันที่ฝาก','Date')}</label><input type="date" id="dep_date" value="${todayISO()}"></div>
+          </div>
+          <div class="goal-actions" style="margin-top:8px">
+            <button class="dep-save" data-id="${g.id}">${L('บันทึกการฝาก','Save deposit')}</button>
+            <button class="dep-cancel">${L('ยกเลิก','Cancel')}</button>
+          </div>
+        </div>`;
+      }
+      // history
+      let hist='';
+      if(historyGoalId===g.id){
+        if(deps.length){
+          hist=`<div class="dep-history">`;
+          deps.forEach(d=>{
+            const dd=new Date(d.date+'T00:00:00');
+            const dlabel=`${dd.getDate()} ${MONTHS_SHORT[lang][dd.getMonth()]} ${lang==='th'?dd.getFullYear()+543:dd.getFullYear()}`;
+            hist+=`<div class="dep-row"><span class="dep-date">${dlabel}</span><span class="dep-amt">+${fmt(d.amount)}</span><button class="dep-del" data-gid="${g.id}" data-did="${d.id}" aria-label="delete">✕</button></div>`;
+          });
+          hist+=`</div>`;
+        } else {
+          hist=`<div class="dep-history"><div class="dep-empty">${L('ยังไม่มีการฝาก','No deposits yet')}</div></div>`;
+        }
+      }
+      html += `<div class="goal-card">
+        <div class="goal-top"><span class="goal-name">${done?'✅ ':'🎯 '}${escapeHtml(g.name)}</span><span class="goal-num">${fmt(saved)} / ${fmt(g.target)}</span></div>
+        <div class="goal-bar"><span style="width:${pct}%;background:${col}"></span></div>
+        <div class="goal-foot">${done?L('สำเร็จแล้ว! 🎉','Goal reached! 🎉'):L('เหลืออีก ','')+fmt(remain)+L('',' to go')+' · '+pct.toFixed(0)+'%'}</div>
+        ${dl}
+        <div class="goal-actions">
+          <button class="g-dep" data-id="${g.id}">+ ${L('ฝากเงิน','Add money')}</button>
+          <button class="g-hist" data-id="${g.id}">📋 ${L('ประวัติ','History')} (${deps.length})</button>
+          <button class="g-edit" data-id="${g.id}">✎</button>
+          <button class="g-del" data-id="${g.id}">🗑</button>
+        </div>
+        ${depForm}
+        ${hist}
+      </div>`;
+    });
+  }
+  html += `<button class="bud-toggle" id="goalToggle">${(goalEditorOpen||ge)?L('▾ ปิด','▾ Close'):L('➕ เพิ่มเป้าหมายการออม','➕ Add savings goal')}</button>`;
+  if(goalEditorOpen||ge){
+    html += `<div class="panel bud-editor">
+      <div class="field" style="margin-bottom:12px"><label>${L('ชื่อเป้าหมาย','Goal name')}</label><input type="text" id="g_name" placeholder="${L('เช่น ทริปญี่ปุ่น, เงินสำรองฉุกเฉิน','e.g. Japan trip, Emergency fund')}" value="${ge?escapeHtml(ge.name):''}"></div>
+      <div class="grid2">
+        <div class="field"><label>${L('เป้าหมาย (บาท)','Target (฿)')}</label><input type="number" id="g_target" min="1" step="1" inputmode="decimal" placeholder="50000" value="${ge?ge.target:''}"></div>
+        ${ge?'':`<div class="field"><label>${L('ออมแล้วตอนนี้ (บาท)','Saved so far (฿)')}</label><input type="number" id="g_saved" min="0" step="1" inputmode="decimal" placeholder="0"></div>`}
+      </div>
+      <div class="field" style="margin:12px 0"><label>${L('กำหนดวันที่ (ไม่บังคับ)','Deadline (optional)')}</label><input type="date" id="g_deadline" value="${ge&&ge.deadline?ge.deadline:''}"></div>
+      <button class="addbtn" id="goalSave">${ge?'💾 '+L('บันทึกการแก้ไข','Save changes'):L('บันทึกเป้าหมาย','Save goal')}</button>
+    </div>`;
+  }
+  return html;
+}
+
 function render(){
   const app = $('#app');
   const ed = editingId ? transactions.find(t=>t.id===editingId) : null;
@@ -543,6 +661,8 @@ function render(){
   }
 
   html += chartsBlock();
+
+  html += savingsBlock();
 
   // ----- Daily log with filter -----
   const allCats = allCategories();
@@ -671,6 +791,43 @@ function wire(){
     budgets={overall:ov,categories:c};saveBudgets();budgetEditorOpen=false;render();
   };
 
+  // savings goals
+  const gt=$('#goalToggle'); if(gt) gt.onclick=()=>{ if(goalEditId){goalEditId=null;goalEditorOpen=false;} else {goalEditorOpen=!goalEditorOpen;} render(); };
+  const gs=$('#goalSave'); if(gs) gs.onclick=()=>{
+    const name=$('#g_name').value.trim();
+    const target=parseFloat($('#g_target').value)||0;
+    const deadline=$('#g_deadline').value||'';
+    if(!name){alert(L('กรุณาตั้งชื่อเป้าหมาย','Please enter a goal name'));return;}
+    if(target<=0){alert(L('กรุณาใส่จำนวนเป้าหมาย','Please enter a target amount'));return;}
+    if(goalEditId){const g=goals.find(x=>x.id===goalEditId);if(g)Object.assign(g,{name,target,deadline});}
+    else{
+      const initEl=$('#g_saved'); const init=initEl?parseFloat(initEl.value)||0:0;
+      const deposits = init>0 ? [{id:Date.now(),amount:init,date:todayISO()}] : [];
+      goals.push({id:Date.now(),name,target,deadline,deposits});
+    }
+    saveGoals();goalEditId=null;goalEditorOpen=false;render();
+  };
+  document.querySelectorAll('.g-dep').forEach(b=>b.onclick=()=>{depositGoalId=Number(b.dataset.id);historyGoalId=null;render();});
+  document.querySelectorAll('.dep-save').forEach(b=>b.onclick=()=>{
+    const g=goals.find(x=>x.id===Number(b.dataset.id));if(!g)return;
+    const amt=parseFloat($('#dep_amt').value);
+    const date=$('#dep_date').value||todayISO();
+    if(!amt||amt<=0){alert(L('กรุณากรอกจำนวนเงินให้ถูกต้อง','Please enter a valid amount'));return;}
+    if(!g.deposits)g.deposits=[];
+    g.deposits.push({id:Date.now(),amount:amt,date});
+    depositGoalId=null;historyGoalId=g.id;saveGoals();render();
+  });
+  document.querySelectorAll('.dep-cancel').forEach(b=>b.onclick=()=>{depositGoalId=null;render();});
+  document.querySelectorAll('.g-hist').forEach(b=>b.onclick=()=>{const id=Number(b.dataset.id);historyGoalId=historyGoalId===id?null:id;depositGoalId=null;render();});
+  document.querySelectorAll('.dep-del').forEach(b=>b.onclick=()=>{
+    const g=goals.find(x=>x.id===Number(b.dataset.gid));if(!g)return;
+    if(confirm(L('ลบรายการฝากนี้?','Delete this deposit?'))){g.deposits=g.deposits.filter(d=>d.id!==Number(b.dataset.did));saveGoals();render();}
+  });
+  document.querySelectorAll('.g-edit').forEach(b=>b.onclick=()=>{goalEditId=Number(b.dataset.id);goalEditorOpen=true;depositGoalId=null;historyGoalId=null;render();});
+  document.querySelectorAll('.g-del').forEach(b=>b.onclick=()=>{
+    if(confirm(L('ลบเป้าหมายนี้?','Delete this goal?'))){goals=goals.filter(x=>x.id!==Number(b.dataset.id));if(goalEditId===Number(b.dataset.id)){goalEditId=null;}saveGoals();render();}
+  });
+
   $('#resetBtn').onclick=()=>{
     if(!confirm(L('ต้องการล้างข้อมูลทั้งหมดใช่หรือไม่? การกระทำนี้ย้อนกลับไม่ได้','Clear all data? This cannot be undone.')))return;
     transactions=[];try{localStorage.removeItem(STORE_KEY);}catch(e){}render();
@@ -690,6 +847,16 @@ function wire(){
   viewMonth = now.getMonth();
   loadData();
   loadBudgets();
+  loadGoals();
+  // migrate old savings goals: convert 'saved' number to a deposits history
+  let gmig=false;
+  goals.forEach(g=>{
+    if(!Array.isArray(g.deposits)){
+      g.deposits = (g.saved>0) ? [{id:(g.id||Date.now())+1, amount:g.saved, date:(g.deadline||todayISO())&&todayISO()}] : [];
+      delete g.saved; gmig=true;
+    }
+  });
+  if(gmig) saveGoals();
   // migrate old category 'เดินทาง' -> 'ค่าน้ำมัน' (keeps existing data)
   let migrated=false;
   transactions.forEach(t=>{if(t.category==='เดินทาง'){t.category='ค่าน้ำมัน';migrated=true;}});
