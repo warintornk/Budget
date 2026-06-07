@@ -219,7 +219,7 @@ const DAYS = {
 /* canonical category = Thai string (keeps existing data working) */
 const CAT_DEF = {
   income:  [['เงินเดือน','Salary'],['รายได้เสริม','Side income'],['โบนัส','Bonus'],['ของขวัญ','Gift'],['ดอกเบี้ย','Interest'],['อื่นๆ','Other']],
-  expense: [['อาหาร','Food'],['เดินทาง','Transport'],['ช้อปปิ้ง','Shopping'],['ค่าน้ำค่าไฟ','Utilities'],['ที่พัก','Housing'],['สุขภาพ','Health'],['บันเทิง','Entertainment'],['การศึกษา','Education'],['อื่นๆ','Other']]
+  expense: [['อาหาร','Food'],['ค่าน้ำมัน','Fuel'],['ช้อปปิ้ง','Shopping'],['ค่าน้ำค่าไฟ','Utilities'],['ที่พัก','Housing'],['ค่าซักผ้า','Laundry'],['ค่าบัตรเครดิต','Credit card'],['สุขภาพ','Health'],['บันเทิง','Entertainment'],['การศึกษา','Education'],['อื่นๆ','Other']]
 };
 const CAT_EN = {};
 Object.values(CAT_DEF).flat().forEach(([th,en])=>{CAT_EN[th]=en});
@@ -690,6 +690,15 @@ function wire(){
   viewMonth = now.getMonth();
   loadData();
   loadBudgets();
+  // migrate old category 'เดินทาง' -> 'ค่าน้ำมัน' (keeps existing data)
+  let migrated=false;
+  transactions.forEach(t=>{if(t.category==='เดินทาง'){t.category='ค่าน้ำมัน';migrated=true;}});
+  if(budgets.categories && budgets.categories['เดินทาง']!==undefined){
+    budgets.categories['ค่าน้ำมัน']=budgets.categories['เดินทาง'];
+    delete budgets.categories['เดินทาง'];
+    saveBudgets();
+  }
+  if(migrated) saveData();
   render();
 })();
 </script>
